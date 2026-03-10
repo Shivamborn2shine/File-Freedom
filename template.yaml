@@ -15,8 +15,8 @@ Parameters:
 Globals:
   Function:
     Runtime: python3.12
-    Timeout: 30
-    MemorySize: 256
+    Timeout: 60
+    MemorySize: 512
     Environment:
       Variables:
         BUCKET_NAME: !Ref CloudDropBucket

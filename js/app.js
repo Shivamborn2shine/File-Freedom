@@ -7,9 +7,23 @@
 const CONFIG = {
   // Replace with your actual API Gateway URL after deploying SAM template
   API_BASE: 'https://wr25rqxcl3.execute-api.ap-south-1.amazonaws.com/Prod',
-  MAX_FILE_SIZE: 100 * 1024 * 1024, // 100 MB
+  MAX_FILE_SIZE: 5 * 1024 * 1024, // 5 MB (API Gateway payload limit)
   MAX_TEXT_SIZE: 500000, // 500K characters
 };
+
+// ===== File to Base64 Helper =====
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      // Remove "data:...;base64," prefix
+      const base64 = reader.result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 // ===== DOM Elements =====
 const $ = (sel) => document.querySelector(sel);
@@ -228,7 +242,16 @@ uploadBtn.addEventListener('click', async () => {
     let uploaded = 0;
 
     for (const file of selectedFiles) {
-      // Step 1: Request presigned URL from backend
+      // Check file size limit (API Gateway has ~6MB payload limit, ~4.5MB after base64)
+      if (file.size > 5 * 1024 * 1024) {
+        showToast(`${file.name} is too large for upload (max 5 MB)`, 'error');
+        continue;
+      }
+
+      // Convert file to base64
+      const fileData = await fileToBase64(file);
+
+      // Upload file data through our Lambda (bypasses S3 CORS issues)
       const response = await fetch(`${CONFIG.API_BASE}/upload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -237,31 +260,18 @@ uploadBtn.addEventListener('click', async () => {
           fileType: file.type || 'application/octet-stream',
           fileSize: file.size,
           shareCode: shareCode,
-          expiry: expiry
+          expiry: expiry,
+          fileData: fileData
         })
       });
 
       if (!response.ok) {
         const errText = await response.text();
-        console.error('API response error:', response.status, errText);
-        throw new Error('Failed to get upload URL');
-      }
-      const data = await response.json();
-      console.log('Got presigned URL for:', file.name);
-
-      // Step 2: Upload file directly to S3 via presigned URL
-      // NOTE: Do NOT set Content-Type header — it's already signed into the presigned URL
-      const uploadResponse = await fetch(data.uploadUrl, {
-        method: 'PUT',
-        body: file
-      });
-
-      if (!uploadResponse.ok) {
-        const s3ErrText = await uploadResponse.text();
-        console.error('S3 upload error:', uploadResponse.status, s3ErrText);
-        throw new Error('Failed to upload file to S3');
+        console.error('Upload error:', response.status, errText);
+        throw new Error(`Failed to upload ${file.name}`);
       }
 
+      console.log('Uploaded:', file.name);
       uploaded++;
       progressBar.style.width = `${(uploaded / totalFiles) * 100}%`;
     }

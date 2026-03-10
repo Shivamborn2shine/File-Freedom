@@ -1,13 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CloudDrop — Instant File & Text Sharing</title>
-  <meta name="description" content="Share files, images, videos, and text instantly with CloudDrop. Powered by AWS serverless infrastructure." />
+  <meta name="description"
+    content="Share files, images, videos, and text instantly with CloudDrop. Powered by AWS serverless infrastructure." />
   <link rel="stylesheet" href="css/style.css" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☁️</text></svg>" />
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☁️</text></svg>" />
 </head>
+
 <body>
 
   <!-- Navbar -->
@@ -28,7 +32,8 @@
   <section class="hero">
     <div class="container">
       <h1>Share Anything, <span class="gradient-text">Instantly</span></h1>
-      <p>Drop files, paste text, share images &amp; videos — get an instant link. Powered by AWS cloud infrastructure.</p>
+      <p>Drop files, paste text, share images &amp; videos — get an instant link. Powered by AWS cloud infrastructure.
+      </p>
     </div>
   </section>
 
@@ -51,7 +56,7 @@
           <h3>Drag &amp; drop files here</h3>
           <p>or <span class="browse-link" id="browseBtn">browse files</span> from your device</p>
           <p style="margin-top:8px;color:var(--text-muted);font-size:0.8rem;">
-            Images, Videos, Documents, Archives — up to 100 MB
+            Images, Videos, Documents, Archives — up to 5 MB
           </p>
         </div>
         <input type="file" class="file-input" id="fileInput" multiple />
@@ -84,7 +89,8 @@
     <!-- ===== TEXT PANEL ===== -->
     <div class="text-panel" id="textPanel">
       <div class="text-editor">
-        <textarea class="text-area" id="textArea" placeholder="Paste your text, code, notes, or anything here..." spellcheck="false"></textarea>
+        <textarea class="text-area" id="textArea" placeholder="Paste your text, code, notes, or anything here..."
+          spellcheck="false"></textarea>
         <div class="text-controls">
           <span class="char-count" id="charCount">0 characters</span>
         </div>
@@ -145,12 +151,14 @@
         <div class="feature-card">
           <span class="feature-icon">⚡</span>
           <h3>Lightning Fast</h3>
-          <p>Files upload directly to AWS S3 via presigned URLs. No middleman, no bottlenecks — just raw cloud speed.</p>
+          <p>Files upload directly to AWS S3 via presigned URLs. No middleman, no bottlenecks — just raw cloud speed.
+          </p>
         </div>
         <div class="feature-card">
           <span class="feature-icon">🔒</span>
           <h3>Secure by Default</h3>
-          <p>All files are encrypted at rest and in transit. Share links use unique random codes that can't be guessed.</p>
+          <p>All files are encrypted at rest and in transit. Share links use unique random codes that can't be guessed.
+          </p>
         </div>
         <div class="feature-card">
           <span class="feature-icon">🌍</span>
@@ -188,4 +196,5 @@
 
   <script src="js/app.js"></script>
 </body>
+
 </html>

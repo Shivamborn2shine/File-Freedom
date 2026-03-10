@@ -1,16 +1,17 @@
 """
 CloudDrop — Upload Lambda Function
-Generates a presigned S3 URL for direct browser-to-S3 upload
-and records metadata in DynamoDB.
+Receives file data (base64) from the browser and uploads to S3.
+This approach avoids S3 CORS issues by proxying through Lambda.
 """
 import json
 import os
 import uuid
 import time
+import base64
 import boto3
 from botocore.config import Config
 
-# AWS Clients — use regional endpoint for proper CORS support
+# AWS Clients
 region = os.environ.get('AWS_REGION', 'ap-south-1')
 s3_client = boto3.client(
     's3',
@@ -21,7 +22,6 @@ dynamodb = boto3.resource('dynamodb')
 
 BUCKET_NAME = os.environ.get('BUCKET_NAME', 'clouddrop-files')
 TABLE_NAME = os.environ.get('TABLE_NAME', 'CloudDropShares')
-PRESIGNED_URL_EXPIRY = 3600  # 1 hour to complete upload
 
 # CORS headers
 CORS_HEADERS = {
@@ -32,7 +32,7 @@ CORS_HEADERS = {
 
 
 def lambda_handler(event, context):
-    """Handle upload request — generate presigned URL and store metadata."""
+    """Handle upload — receive base64 file data, store in S3, save metadata."""
 
     # Handle CORS preflight
     if event.get('httpMethod') == 'OPTIONS':
@@ -44,7 +44,8 @@ def lambda_handler(event, context):
         file_type = body.get('fileType', 'application/octet-stream')
         file_size = body.get('fileSize', 0)
         share_code = body.get('shareCode')
-        expiry = body.get('expiry', 86400)  # Default 24 hours
+        expiry = body.get('expiry', 86400)
+        file_data_b64 = body.get('fileData')  # base64-encoded file content
 
         if not share_code:
             return {
@@ -53,29 +54,26 @@ def lambda_handler(event, context):
                 'body': json.dumps({'error': 'shareCode is required'})
             }
 
+        if not file_data_b64:
+            return {
+                'statusCode': 400,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'fileData is required'})
+            }
+
+        # Decode file data
+        file_bytes = base64.b64decode(file_data_b64)
+
         # Generate unique S3 key
         file_id = str(uuid.uuid4())
         s3_key = f"uploads/{share_code}/{file_id}/{file_name}"
 
-        # Generate presigned PUT URL
-        presigned_url = s3_client.generate_presigned_url(
-            'put_object',
-            Params={
-                'Bucket': BUCKET_NAME,
-                'Key': s3_key,
-                'ContentType': file_type
-            },
-            ExpiresIn=PRESIGNED_URL_EXPIRY
-        )
-
-        # Generate presigned GET URL for later retrieval
-        download_url = s3_client.generate_presigned_url(
-            'get_object',
-            Params={
-                'Bucket': BUCKET_NAME,
-                'Key': s3_key
-            },
-            ExpiresIn=max(expiry, 86400) if expiry > 0 else 2592000  # At least 24h or 30 days
+        # Upload to S3 directly from Lambda
+        s3_client.put_object(
+            Bucket=BUCKET_NAME,
+            Key=s3_key,
+            Body=file_bytes,
+            ContentType=file_type
         )
 
         # Store metadata in DynamoDB
@@ -89,12 +87,11 @@ def lambda_handler(event, context):
             'fileSize': file_size,
             'fileCategory': _get_category(file_name, file_type),
             's3Key': s3_key,
-            'downloadUrl': download_url,
             'contentType': 'file',
             'expiry': expiry,
             'createdAt': now,
             'expiresAt': now + expiry if expiry > 0 else 0,
-            'ttl': now + expiry if expiry > 0 else 0  # DynamoDB TTL
+            'ttl': now + expiry if expiry > 0 else 0
         }
         table.put_item(Item=item)
 
@@ -102,10 +99,9 @@ def lambda_handler(event, context):
             'statusCode': 200,
             'headers': CORS_HEADERS,
             'body': json.dumps({
-                'uploadUrl': presigned_url,
-                'downloadUrl': download_url,
                 'shareCode': share_code,
-                'fileId': file_id
+                'fileId': file_id,
+                'message': 'File uploaded successfully'
             })
         }
 
@@ -114,7 +110,7 @@ def lambda_handler(event, context):
         return {
             'statusCode': 500,
             'headers': CORS_HEADERS,
-            'body': json.dumps({'error': 'Internal server error'})
+            'body': json.dumps({'error': f'Upload error: {str(e)}'})
         }
 
 
