@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CloudDrop — Shared Content</title>
+  <meta name="description" content="View shared content on CloudDrop." />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☁️</text></svg>" />
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="container">
+      <a href="index.html" class="logo">
+        <span class="logo-icon">☁️</span>
+        CloudDrop
+      </a>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">⬆ Upload New</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Share View -->
+  <div class="share-view" id="shareView">
+    <!-- Loading State -->
+    <div id="loadingState" style="text-align:center; padding:60px 0;">
+      <div class="spinner" style="margin:0 auto 16px;width:32px;height:32px;"></div>
+      <p style="color:var(--text-muted);">Loading shared content...</p>
+    </div>
+
+    <!-- Error State (hidden initially) -->
+    <div id="errorState" style="display:none; text-align:center; padding:60px 0;">
+      <span style="font-size:3rem; display:block; margin-bottom:16px;">😕</span>
+      <h2 style="margin-bottom:8px;">Content Not Found</h2>
+      <p style="color:var(--text-secondary); margin-bottom:24px;">This share link may have expired or doesn't exist.</p>
+      <a href="index.html" class="btn btn-primary">⬆ Upload Something New</a>
+    </div>
+
+    <!-- Content State (hidden initially) -->
+    <div id="contentState" style="display:none;">
+      <div class="share-header">
+        <div>
+          <h2 id="shareTitle">Untitled</h2>
+          <div class="share-meta">
+            <span id="shareType">📎 File</span>
+            <span id="shareSize">0 KB</span>
+            <span id="shareExpiry">⏰ Expires in 24h</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="preview-card">
+        <div class="preview-content" id="previewContent">
+          <!-- Dynamic content injected here -->
+        </div>
+        <div class="preview-actions">
+          <button class="btn btn-primary" id="downloadBtn">
+            <span>⬇</span> Download
+          </button>
+          <button class="btn btn-secondary" id="copyShareBtn">
+            <span>📋</span> Copy Link
+          </button>
+          <button class="btn btn-secondary" id="newShareBtn" onclick="window.location.href='index.html'">
+            <span>⬆</span> Share Something New
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="js/share.js"></script>
+</body>
+</html>

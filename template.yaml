@@ -1,0 +1,195 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  CloudDrop - Serverless File & Media Sharing Platform
+  Built with AWS Lambda, API Gateway, S3, and DynamoDB
+
+# ===== Parameters =====
+Parameters:
+  Stage:
+    Type: String
+    Default: Prod
+    Description: Deployment stage name
+
+# ===== Global Configuration =====
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 30
+    MemorySize: 256
+    Environment:
+      Variables:
+        BUCKET_NAME: !Ref CloudDropBucket
+        TABLE_NAME: !Ref CloudDropTable
+
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,PUT,OPTIONS'"
+      AllowHeaders: "'Content-Type'"
+      AllowOrigin: "'*'"
+
+# ===== Resources =====
+Resources:
+
+  # --- S3 Bucket for File Storage ---
+  CloudDropBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'clouddrop-files-${AWS::AccountId}'
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, PUT, POST]
+            AllowedOrigins: ['*']
+            MaxAge: 3600
+      LifecycleConfiguration:
+        Rules:
+          - Id: AutoDeleteUploads
+            Status: Enabled
+            Prefix: uploads/
+            ExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # --- DynamoDB Table ---
+  CloudDropTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CloudDropShares
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: shareCode
+          AttributeType: S
+        - AttributeName: fileId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: shareCode
+          KeyType: HASH
+        - AttributeName: fileId
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  # --- Upload Function ---
+  UploadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: upload.lambda_handler
+      CodeUri: backend/
+      Description: Generate presigned URLs and store upload metadata
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref CloudDropBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CloudDropTable
+      Events:
+        UploadApi:
+          Type: Api
+          Properties:
+            Path: /upload
+            Method: POST
+            RestApiId: !Ref CloudDropApi
+        UploadOptions:
+          Type: Api
+          Properties:
+            Path: /upload
+            Method: OPTIONS
+            RestApiId: !Ref CloudDropApi
+
+  # --- Share Lookup Function ---
+  ShareFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: share.lambda_handler
+      CodeUri: backend/
+      Description: Look up shared content by share code
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref CloudDropBucket
+        - DynamoDBReadPolicy:
+            TableName: !Ref CloudDropTable
+      Events:
+        ShareApi:
+          Type: Api
+          Properties:
+            Path: /share/{code}
+            Method: GET
+            RestApiId: !Ref CloudDropApi
+        ShareOptions:
+          Type: Api
+          Properties:
+            Path: /share/{code}
+            Method: OPTIONS
+            RestApiId: !Ref CloudDropApi
+
+  # --- Text Share Function ---
+  TextShareFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: text_share.lambda_handler
+      CodeUri: backend/
+      Description: Store shared text content
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref CloudDropBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CloudDropTable
+      Events:
+        TextApi:
+          Type: Api
+          Properties:
+            Path: /text
+            Method: POST
+            RestApiId: !Ref CloudDropApi
+        TextOptions:
+          Type: Api
+          Properties:
+            Path: /text
+            Method: OPTIONS
+            RestApiId: !Ref CloudDropApi
+
+  # --- Cleanup Function (Scheduled) ---
+  CleanupFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: cleanup.lambda_handler
+      CodeUri: backend/
+      Description: Clean up expired shares from DynamoDB and S3
+      Timeout: 300
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref CloudDropBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CloudDropTable
+      Events:
+        ScheduledCleanup:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 hour)
+            Description: Run cleanup every hour
+            Enabled: true
+
+  # --- API Gateway ---
+  CloudDropApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Stage
+      Description: CloudDrop REST API
+
+# ===== Outputs =====
+Outputs:
+  ApiUrl:
+    Description: API Gateway URL
+    Value: !Sub 'https://${CloudDropApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}'
+
+  BucketName:
+    Description: S3 Bucket for file storage
+    Value: !Ref CloudDropBucket
+
+  TableName:
+    Description: DynamoDB table name
+    Value: !Ref CloudDropTable

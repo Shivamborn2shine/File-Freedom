@@ -1,0 +1,16 @@
+# AWS SAM build artifacts
+.aws-sam/
+
+# Node modules
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env

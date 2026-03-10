@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CloudDrop — Instant File & Text Sharing</title>
+  <meta name="description" content="Share files, images, videos, and text instantly with CloudDrop. Powered by AWS serverless infrastructure." />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☁️</text></svg>" />
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar" id="navbar">
+    <div class="container">
+      <a href="index.html" class="logo">
+        <span class="logo-icon">☁️</span>
+        CloudDrop
+      </a>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link active">Upload</a>
+        <a href="#features" class="nav-link">Features</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <h1>Share Anything, <span class="gradient-text">Instantly</span></h1>
+      <p>Drop files, paste text, share images &amp; videos — get an instant link. Powered by AWS cloud infrastructure.</p>
+    </div>
+  </section>
+
+  <!-- Mode Tabs -->
+  <div class="container">
+    <div class="mode-tabs" id="modeTabs">
+      <button class="mode-tab active" data-mode="file" id="fileTabBtn">
+        <span class="tab-icon">📁</span> File Upload
+      </button>
+      <button class="mode-tab" data-mode="text" id="textTabBtn">
+        <span class="tab-icon">📝</span> Text / Code
+      </button>
+    </div>
+
+    <!-- ===== FILE UPLOAD PANEL ===== -->
+    <div class="upload-panel active" id="filePanel">
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-zone-content">
+          <span class="drop-icon">☁️</span>
+          <h3>Drag &amp; drop files here</h3>
+          <p>or <span class="browse-link" id="browseBtn">browse files</span> from your device</p>
+          <p style="margin-top:8px;color:var(--text-muted);font-size:0.8rem;">
+            Images, Videos, Documents, Archives — up to 100 MB
+          </p>
+        </div>
+        <input type="file" class="file-input" id="fileInput" multiple />
+      </div>
+
+      <div class="file-list" id="fileList"></div>
+
+      <div class="options-row" id="fileOptions" style="display:none;">
+        <div class="option-group">
+          <label for="fileExpiry">Expires In</label>
+          <select class="option-select" id="fileExpiry">
+            <option value="3600">1 Hour</option>
+            <option value="86400" selected>24 Hours</option>
+            <option value="604800">7 Days</option>
+            <option value="2592000">30 Days</option>
+            <option value="0">Never</option>
+          </select>
+        </div>
+        <div style="flex:1;"></div>
+        <button class="btn btn-primary" id="uploadBtn" disabled>
+          <span>🚀</span> Upload &amp; Share
+        </button>
+      </div>
+
+      <div class="progress-bar-wrapper" id="progressWrapper">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+    </div>
+
+    <!-- ===== TEXT PANEL ===== -->
+    <div class="text-panel" id="textPanel">
+      <div class="text-editor">
+        <textarea class="text-area" id="textArea" placeholder="Paste your text, code, notes, or anything here..." spellcheck="false"></textarea>
+        <div class="text-controls">
+          <span class="char-count" id="charCount">0 characters</span>
+        </div>
+      </div>
+
+      <div class="options-row">
+        <div class="option-group">
+          <label for="textExpiry">Expires In</label>
+          <select class="option-select" id="textExpiry">
+            <option value="3600">1 Hour</option>
+            <option value="86400" selected>24 Hours</option>
+            <option value="604800">7 Days</option>
+            <option value="2592000">30 Days</option>
+            <option value="0">Never</option>
+          </select>
+        </div>
+        <div style="flex:1;"></div>
+        <button class="btn btn-primary" id="shareTextBtn" disabled>
+          <span>🔗</span> Share Text
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== SHARE RESULT ===== -->
+    <div class="share-result" id="shareResult">
+      <h3>✅ Shared Successfully!</h3>
+      <div class="share-link-box">
+        <input type="text" class="share-link-input" id="shareLinkInput" readonly />
+        <button class="copy-btn" id="copyBtn">📋 Copy</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-icon">📤</span>
+        <div class="stat-value" id="statUploads">0</div>
+        <div class="stat-label">Files Shared</div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">📝</span>
+        <div class="stat-value" id="statTexts">0</div>
+        <div class="stat-label">Text Snippets</div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">🔗</span>
+        <div class="stat-value" id="statLinks">0</div>
+        <div class="stat-label">Active Links</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <section class="features" id="features">
+    <div class="container">
+      <h2>Why <span class="gradient-text">CloudDrop</span>?</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <span class="feature-icon">⚡</span>
+          <h3>Lightning Fast</h3>
+          <p>Files upload directly to AWS S3 via presigned URLs. No middleman, no bottlenecks — just raw cloud speed.</p>
+        </div>
+        <div class="feature-card">
+          <span class="feature-icon">🔒</span>
+          <h3>Secure by Default</h3>
+          <p>All files are encrypted at rest and in transit. Share links use unique random codes that can't be guessed.</p>
+        </div>
+        <div class="feature-card">
+          <span class="feature-icon">🌍</span>
+          <h3>Global CDN</h3>
+          <p>CloudFront delivers your shared content from edge locations worldwide for instant access from anywhere.</p>
+        </div>
+        <div class="feature-card">
+          <span class="feature-icon">⏰</span>
+          <h3>Auto-Expiry</h3>
+          <p>Set files to expire after 1 hour, 24 hours, 7 days, or keep them forever. You're in control.</p>
+        </div>
+        <div class="feature-card">
+          <span class="feature-icon">📱</span>
+          <h3>Mobile Friendly</h3>
+          <p>Responsive design works beautifully on phones, tablets, and desktops. Share from anywhere.</p>
+        </div>
+        <div class="feature-card">
+          <span class="feature-icon">💸</span>
+          <h3>Serverless = Free Tier</h3>
+          <p>Built on AWS Lambda, S3, and DynamoDB — runs entirely on Free Tier for development and light usage.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <p>Built with ☁️ and AWS — <a href="https://github.com" target="_blank">CloudDrop</a> Mini Project</p>
+    </div>
+  </footer>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
