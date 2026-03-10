@@ -8,8 +8,15 @@ import os
 import time
 import boto3
 
+from botocore.config import Config
+
 dynamodb = boto3.resource('dynamodb')
-s3_client = boto3.client('s3')
+region = os.environ.get('AWS_REGION', 'ap-south-1')
+s3_client = boto3.client(
+    's3',
+    region_name=region,
+    config=Config(signature_version='s3v4')
+)
 
 TABLE_NAME = os.environ.get('TABLE_NAME', 'CloudDropShares')
 BUCKET_NAME = os.environ.get('BUCKET_NAME', 'clouddrop-files')

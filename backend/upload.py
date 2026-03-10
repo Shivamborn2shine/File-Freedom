@@ -15,10 +15,7 @@ region = os.environ.get('AWS_REGION', 'ap-south-1')
 s3_client = boto3.client(
     's3',
     region_name=region,
-    config=Config(
-        signature_version='s3v4',
-        s3={'addressing_style': 'path'}
-    )
+    config=Config(signature_version='s3v4')
 )
 dynamodb = boto3.resource('dynamodb')
 
