@@ -10,8 +10,16 @@ import time
 import boto3
 from botocore.config import Config
 
-# AWS Clients
-s3_client = boto3.client('s3', config=Config(signature_version='s3v4'))
+# AWS Clients — use regional endpoint for proper CORS support
+region = os.environ.get('AWS_REGION', 'ap-south-1')
+s3_client = boto3.client(
+    's3',
+    region_name=region,
+    config=Config(
+        signature_version='s3v4',
+        s3={'addressing_style': 'path'}
+    )
+)
 dynamodb = boto3.resource('dynamodb')
 
 BUCKET_NAME = os.environ.get('BUCKET_NAME', 'clouddrop-files')
