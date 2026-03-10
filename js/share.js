@@ -180,27 +180,40 @@ function displayShare(data) {
         shareSize.textContent = formatSize(file.size);
         shareExpiry.textContent = formatExpiry(data.expiry, data.created);
 
-        // Build download proxy URL (goes through our API, not S3 directly)
-        const downloadUrl = `${CONFIG.API_BASE}/download/${data.shareCode}`;
+        // Fetch file data from download proxy (returns base64 in JSON)
+        const downloadApiUrl = `${CONFIG.API_BASE}/download/${data.shareCode}`;
 
-        // Render preview based on category
-        if (file.category === 'image') {
-            renderImageContent(downloadUrl, file.name);
-        } else if (file.category === 'video') {
-            renderVideoContent(downloadUrl, file.type);
-        } else {
-            renderGenericContent(file.name, file.size, file.category);
-        }
+        // Show loading indicator while fetching file
+        renderGenericContent(file.name, file.size, file.category);
 
-        // Download button — fetch through our API and save
-        downloadBtn.onclick = () => {
-            const a = document.createElement('a');
-            a.href = downloadUrl;
-            a.download = file.name;
-            a.target = '_blank';
-            a.click();
-            showToast('Download started!', 'success');
-        };
+        fetch(downloadApiUrl)
+            .then(res => res.json())
+            .then(dlData => {
+                const dataUrl = `data:${dlData.fileType};base64,${dlData.fileData}`;
+
+                // Render preview based on category
+                if (file.category === 'image') {
+                    renderImageContent(dataUrl, file.name);
+                } else if (file.category === 'video') {
+                    renderVideoContent(dataUrl, file.type);
+                }
+                // else keep the generic content already rendered
+
+                // Set up download button with the data URL
+                downloadBtn.onclick = () => {
+                    const a = document.createElement('a');
+                    a.href = dataUrl;
+                    a.download = dlData.fileName || file.name;
+                    a.click();
+                    showToast('Download started!', 'success');
+                };
+            })
+            .catch(err => {
+                console.error('Download fetch error:', err);
+                downloadBtn.onclick = () => {
+                    showToast('Could not download file', 'error');
+                };
+            });
 
         // If multiple files, show a note
         if (data.files.length > 1) {

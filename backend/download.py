@@ -1,7 +1,6 @@
 """
 CloudDrop — Download Proxy Lambda Function
-Serves files from S3 through API Gateway, avoiding presigned URL issues.
-Returns file content as base64 for API Gateway binary support.
+Serves files from S3 through API Gateway as base64 in JSON.
 """
 import json
 import os
@@ -29,7 +28,7 @@ CORS_HEADERS = {
 
 
 def lambda_handler(event, context):
-    """Download a file by share code — proxies from S3 through Lambda."""
+    """Download a file by share code — returns base64 data in JSON."""
 
     if event.get('httpMethod') == 'OPTIONS':
         return {'statusCode': 200, 'headers': CORS_HEADERS, 'body': ''}
@@ -75,16 +74,18 @@ def lambda_handler(event, context):
         s3_response = s3_client.get_object(Bucket=BUCKET_NAME, Key=s3_key)
         file_bytes = s3_response['Body'].read()
 
-        # Return as base64 with binary content type
+        # Return file content as base64 inside JSON
         return {
             'statusCode': 200,
             'headers': {
                 **CORS_HEADERS,
-                'Content-Type': file_type,
-                'Content-Disposition': f'inline; filename="{file_name}"',
+                'Content-Type': 'application/json',
             },
-            'body': base64.b64encode(file_bytes).decode('utf-8'),
-            'isBase64Encoded': True
+            'body': json.dumps({
+                'fileName': file_name,
+                'fileType': file_type,
+                'fileData': base64.b64encode(file_bytes).decode('utf-8')
+            })
         }
 
     except Exception as e:

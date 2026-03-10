@@ -207,8 +207,6 @@ Resources:
     Properties:
       StageName: !Ref Stage
       Description: CloudDrop REST API
-      BinaryMediaTypes:
-        - '*/*'
 
 # ===== Outputs =====
 Outputs:
