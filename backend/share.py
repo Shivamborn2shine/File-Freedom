@@ -85,24 +85,14 @@ def lambda_handler(event, context):
                 'shareCode': share_code
             }
         else:
-            # File share — generate fresh presigned URLs
+            # File share — return metadata (download goes through /download/{code} proxy)
             files = []
             for item in items:
-                s3_key = item.get('s3Key', '')
-                expiry_val = int(item.get('expiry', 86400))
-                download_url = s3_client.generate_presigned_url(
-                    'get_object',
-                    Params={'Bucket': BUCKET_NAME, 'Key': s3_key},
-                    ExpiresIn=max(expiry_val, 3600)
-                ) if s3_key else ''
-
                 files.append({
                     'name': item.get('fileName', 'untitled'),
                     'type': item.get('fileType', 'application/octet-stream'),
                     'size': int(item.get('fileSize', 0)),
-                    'category': item.get('fileCategory', 'other'),
-                    'url': download_url,
-                    'dataUrl': None
+                    'category': item.get('fileCategory', 'other')
                 })
 
             result = {

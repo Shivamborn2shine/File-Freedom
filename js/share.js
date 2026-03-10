@@ -180,44 +180,27 @@ function displayShare(data) {
         shareSize.textContent = formatSize(file.size);
         shareExpiry.textContent = formatExpiry(data.expiry, data.created);
 
+        // Build download proxy URL (goes through our API, not S3 directly)
+        const downloadUrl = `${CONFIG.API_BASE}/download/${data.shareCode}`;
+
         // Render preview based on category
-        if (file.dataUrl) {
-            if (file.category === 'image') {
-                renderImageContent(file.dataUrl, file.name);
-            } else if (file.category === 'video') {
-                renderVideoContent(file.dataUrl, file.type);
-            } else {
-                renderGenericContent(file.name, file.size, file.category);
-            }
-
-            // Download from data URL
-            downloadBtn.onclick = () => {
-                const a = document.createElement('a');
-                a.href = file.dataUrl;
-                a.download = file.name;
-                a.click();
-                showToast('Download started!', 'success');
-            };
-        } else if (file.url) {
-            // S3 URL from backend
-            if (file.category === 'image') {
-                renderImageContent(file.url, file.name);
-            } else if (file.category === 'video') {
-                renderVideoContent(file.url, file.type);
-            } else {
-                renderGenericContent(file.name, file.size, file.category);
-            }
-
-            downloadBtn.onclick = () => {
-                window.open(file.url, '_blank');
-                showToast('Download started!', 'success');
-            };
+        if (file.category === 'image') {
+            renderImageContent(downloadUrl, file.name);
+        } else if (file.category === 'video') {
+            renderVideoContent(downloadUrl, file.type);
         } else {
             renderGenericContent(file.name, file.size, file.category);
-            downloadBtn.onclick = () => {
-                showToast('File not available in demo mode', 'info');
-            };
         }
+
+        // Download button — fetch through our API and save
+        downloadBtn.onclick = () => {
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = file.name;
+            a.target = '_blank';
+            a.click();
+            showToast('Download started!', 'success');
+        };
 
         // If multiple files, show a note
         if (data.files.length > 1) {

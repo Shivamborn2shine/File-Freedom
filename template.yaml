@@ -173,12 +173,42 @@ Resources:
             Description: Run cleanup every hour
             Enabled: true
 
+  # --- Download Proxy Function ---
+  DownloadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: download.lambda_handler
+      CodeUri: backend/
+      Description: Download files from S3 through API Gateway proxy
+      Timeout: 60
+      MemorySize: 512
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref CloudDropBucket
+        - DynamoDBReadPolicy:
+            TableName: !Ref CloudDropTable
+      Events:
+        DownloadApi:
+          Type: Api
+          Properties:
+            Path: /download/{code}
+            Method: GET
+            RestApiId: !Ref CloudDropApi
+        DownloadOptions:
+          Type: Api
+          Properties:
+            Path: /download/{code}
+            Method: OPTIONS
+            RestApiId: !Ref CloudDropApi
+
   # --- API Gateway ---
   CloudDropApi:
     Type: AWS::Serverless::Api
     Properties:
       StageName: !Ref Stage
       Description: CloudDrop REST API
+      BinaryMediaTypes:
+        - '*/*'
 
 # ===== Outputs =====
 Outputs:
