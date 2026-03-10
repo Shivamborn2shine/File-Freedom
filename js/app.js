@@ -241,17 +241,26 @@ uploadBtn.addEventListener('click', async () => {
         })
       });
 
-      if (!response.ok) throw new Error('Failed to get upload URL');
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error('API response error:', response.status, errText);
+        throw new Error('Failed to get upload URL');
+      }
       const data = await response.json();
+      console.log('Got presigned URL for:', file.name);
 
       // Step 2: Upload file directly to S3 via presigned URL
+      // NOTE: Do NOT set Content-Type header — it's already signed into the presigned URL
       const uploadResponse = await fetch(data.uploadUrl, {
         method: 'PUT',
-        headers: { 'Content-Type': file.type || 'application/octet-stream' },
         body: file
       });
 
-      if (!uploadResponse.ok) throw new Error('Failed to upload file');
+      if (!uploadResponse.ok) {
+        const s3ErrText = await uploadResponse.text();
+        console.error('S3 upload error:', uploadResponse.status, s3ErrText);
+        throw new Error('Failed to upload file to S3');
+      }
 
       uploaded++;
       progressBar.style.width = `${(uploaded / totalFiles) * 100}%`;
