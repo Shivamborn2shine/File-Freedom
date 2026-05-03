@@ -17,6 +17,8 @@ const previewContent = $('#previewContent');
 const downloadBtn = $('#downloadBtn');
 const copyShareBtn = $('#copyShareBtn');
 const toastContainer = $('#toastContainer');
+const retrieveCodeInput = $('#retrieveCodeInput');
+const retrieveBtn = $('#retrieveBtn');
 
 let shareData = null;
 
@@ -331,3 +333,22 @@ if (shareCode) {
 } else {
     showError();
 }
+
+// ===== Retrieval Logic =====
+function handleRetrieval() {
+  const code = retrieveCodeInput.value.trim();
+  if (!code) {
+    showToast('Please enter a share code.', 'info');
+    return;
+  }
+
+  // Redirect to share.html with the code
+  window.location.href = `share.html?code=${code}#${code}`;
+}
+
+retrieveBtn.addEventListener('click', handleRetrieval);
+retrieveCodeInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    handleRetrieval();
+  }
+});

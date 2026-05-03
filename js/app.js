@@ -31,7 +31,10 @@ const shareTextBtn = $('#shareTextBtn');
 const shareResult = $('#shareResult');
 const shareLinkInput = $('#shareLinkInput');
 const copyBtn = $('#copyBtn');
+const shareCodeDisplay = $('#shareCodeDisplay');
 const toastContainer = $('#toastContainer');
+const retrieveCodeInput = $('#retrieveCodeInput');
+const retrieveBtn = $('#retrieveBtn');
 
 // ===== State =====
 let selectedFiles = [];
@@ -335,6 +338,7 @@ uploadBtn.addEventListener('click', async () => {
     // Add the code as a hash fallback in case web servers (like `serve`) drop query parameters on redirect
     const shareLink = `${window.location.origin}${window.location.pathname.replace('index.html', '')}share.html?code=${shareCode}#${shareCode}`;
     shareLinkInput.value = shareLink;
+    shareCodeDisplay.textContent = shareCode;
     shareResult.classList.add('active');
     incrementStat('uploads');
     showToast('Files uploaded and shared successfully!', 'success');
@@ -380,6 +384,7 @@ shareTextBtn.addEventListener('click', async () => {
     // Add the code as a hash fallback in case web servers (like `serve`) drop query parameters on redirect
     const shareLink = `${window.location.origin}${window.location.pathname.replace('index.html', '')}share.html?code=${shareCode}#${shareCode}`;
     shareLinkInput.value = shareLink;
+    shareCodeDisplay.textContent = shareCode;
     shareResult.classList.add('active');
     incrementStat('texts');
     showToast('Text shared successfully!', 'success');
@@ -404,6 +409,25 @@ copyBtn.addEventListener('click', () => {
       copyBtn.classList.remove('copied');
     }, 2000);
   });
+});
+
+// ===== Retrieval Logic =====
+function handleRetrieval() {
+  const code = retrieveCodeInput.value.trim();
+  if (!code) {
+    showToast('Please enter a share code.', 'info');
+    return;
+  }
+
+  // Redirect to share.html with the code
+  window.location.href = `share.html?code=${code}#${code}`;
+}
+
+retrieveBtn.addEventListener('click', handleRetrieval);
+retrieveCodeInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    handleRetrieval();
+  }
 });
 
 // ===== Init =====

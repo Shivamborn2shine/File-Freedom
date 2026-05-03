@@ -24,6 +24,10 @@
       </a>
       <div class="nav-links">
         <a href="index.html" class="nav-link active">Upload</a>
+        <div class="nav-search-group">
+          <input type="text" id="retrieveCodeInput" placeholder="Enter share code..." class="nav-search-input" maxlength="12" />
+          <button id="retrieveBtn" class="nav-search-btn">Retrieve</button>
+        </div>
         <a href="#features" class="nav-link">Features</a>
       </div>
     </div>
@@ -123,6 +127,10 @@
         <input type="text" class="share-link-input" id="shareLinkInput" readonly />
         <button class="copy-btn" id="copyBtn">📋 Copy</button>
       </div>
+      <p style="margin-top: 16px; font-size: 0.9rem; color: var(--text-secondary); text-align: center;">
+        Or use this code to retrieve your data: <br>
+        <strong id="shareCodeDisplay" style="font-size: 1.2rem; color: var(--accent-cyan); letter-spacing: 2px;"></strong>
+      </p>
     </div>
 
     <!-- Stats -->
