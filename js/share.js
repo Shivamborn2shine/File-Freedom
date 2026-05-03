@@ -1,12 +1,8 @@
 /**
  * CloudDrop — Share Page Logic
  * Renders shared content (files, images, videos, text) from a share code
+ * Powered by Firebase (Firestore)
  */
-
-// ===== Configuration =====
-const CONFIG = {
-    API_BASE: 'https://wr25rqxcl3.execute-api.ap-south-1.amazonaws.com/Prod',
-};
 
 // ===== DOM Elements =====
 const $ = (sel) => document.querySelector(sel);
@@ -23,6 +19,32 @@ const copyShareBtn = $('#copyShareBtn');
 const toastContainer = $('#toastContainer');
 
 let shareData = null;
+
+// ===== Process Overlay Helper =====
+async function setProcessStep(stepNumber, text, delayMs = 600) {
+    const stepsContainer = $('#processSteps');
+    if (!stepsContainer) return;
+
+    if (stepNumber === 1) stepsContainer.innerHTML = '';
+
+    const prevStep = $(`#step-${stepNumber - 1}`);
+    if (prevStep) {
+        prevStep.classList.remove('active');
+        prevStep.classList.add('completed');
+    }
+
+    const stepEl = document.createElement('div');
+    stepEl.id = `step-${stepNumber}`;
+    stepEl.className = 'process-step active';
+    stepEl.innerHTML = `
+    <div class="step-indicator"><span class="step-number">${stepNumber}</span></div>
+    <div class="step-text">${text}</div>
+  `;
+    stepsContainer.appendChild(stepEl);
+
+    // Artificial delay for playful visual effect
+    await new Promise(r => setTimeout(r, delayMs));
+}
 
 // ===== Toast =====
 function showToast(message, type = 'info') {
@@ -90,7 +112,7 @@ function renderVideoContent(url, fileType) {
 }
 
 function renderGenericContent(fileName, fileSize, category) {
-    const icons = { image: '🖼️', video: '🎬', text: '📄', document: '📑', other: '📎' };
+    const icons = { image: '🖼️', video: '🎬', text: '📄', document: '📑', archive: '📦', executable: '⚙️', other: '📎' };
     previewContent.innerHTML = `
     <div style="text-align:center; padding:40px;">
       <span style="font-size:4rem; display:block; margin-bottom:16px;">${icons[category] || '📎'}</span>
@@ -120,28 +142,35 @@ function showContent() {
     contentState.style.display = 'block';
 }
 
-// ===== Fetch Share Data =====
+// ===== Fetch Share Data from Firebase =====
 async function loadShare(code) {
     showLoading();
 
     try {
-        // Try API first
-        const response = await fetch(`${CONFIG.API_BASE}/share/${code}`);
-        if (!response.ok) throw new Error('API error');
-        shareData = await response.json();
-        displayShare(shareData);
-    } catch (apiErr) {
-        console.log('API unavailable, checking localStorage demo data...');
+        // Fetch from Firestore
+        const doc = await db.collection('shares').doc(code).get();
 
-        // DEMO MODE: Check localStorage
-        const demoData = localStorage.getItem(`clouddrop_${code}`);
-        if (demoData) {
-            shareData = JSON.parse(demoData);
-            shareData.shareCode = code;
-            displayShare(shareData);
-        } else {
+        if (!doc.exists) {
             showError();
+            return;
         }
+
+        shareData = doc.data();
+        shareData.shareCode = code;
+
+        // Check if expired
+        if (shareData.expiry && shareData.expiry > 0) {
+            const expiresAt = shareData.created + (shareData.expiry * 1000);
+            if (Date.now() > expiresAt) {
+                showError();
+                return;
+            }
+        }
+
+        displayShare(shareData);
+    } catch (err) {
+        console.error('Error loading share:', err);
+        showError();
     }
 }
 
@@ -175,45 +204,91 @@ function displayShare(data) {
         shareTitle.textContent = file.name || 'Shared File';
         document.title = `CloudDrop — ${file.name || 'Shared File'}`;
 
-        const catIcons = { image: '🖼️ Image', video: '🎬 Video', text: '📄 Text', document: '📑 Document', other: '📎 File' };
+        const catIcons = { image: '🖼️ Image', video: '🎬 Video', text: '📄 Text', document: '📑 Document', archive: '📦 Archive', executable: '⚙️ Program', other: '📎 File' };
         shareType.innerHTML = catIcons[file.category] || '📎 File';
         shareSize.textContent = formatSize(file.size);
         shareExpiry.textContent = formatExpiry(data.expiry, data.created);
 
-        // Fetch file data from download proxy (returns base64 in JSON)
-        const downloadApiUrl = `${CONFIG.API_BASE}/download/${data.shareCode}`;
+        // The Base64 Data URL might be chunked
+        let downloadURL = file.dataURL;
 
-        // Show loading indicator while fetching file
+        // Show loading indicator while setting up
         renderGenericContent(file.name, file.size, file.category);
 
-        fetch(downloadApiUrl)
-            .then(res => res.json())
-            .then(dlData => {
-                const dataUrl = `data:${dlData.fileType};base64,${dlData.fileData}`;
-
+        const setupDownloadAndRender = (url) => {
+            if (url) {
                 // Render preview based on category
                 if (file.category === 'image') {
-                    renderImageContent(dataUrl, file.name);
+                    renderImageContent(url, file.name);
                 } else if (file.category === 'video') {
-                    renderVideoContent(dataUrl, file.type);
+                    renderVideoContent(url, file.type);
                 }
-                // else keep the generic content already rendered
 
-                // Set up download button with the data URL
+                // Set up download button
                 downloadBtn.onclick = () => {
                     const a = document.createElement('a');
-                    a.href = dataUrl;
-                    a.download = dlData.fileName || file.name;
+                    a.href = url;
+                    a.download = file.name; 
                     a.click();
                     showToast('Download started!', 'success');
                 };
-            })
-            .catch(err => {
-                console.error('Download fetch error:', err);
-                downloadBtn.onclick = () => {
-                    showToast('Could not download file', 'error');
-                };
-            });
+            } else {
+                showError();
+            }
+        };
+
+        if (file.isChunked && file.chunkIds) {
+            // Show playful overlay for downloading
+            const overlay = $('#processOverlay');
+            if (overlay) overlay.classList.add('active');
+
+            const processDownload = async () => {
+                try {
+                    await setProcessStep(1, "Connecting to Firestore...", 600);
+                    
+                    const chunkPromises = file.chunkIds.map(chunkId => 
+                        db.collection('shares').doc(shareCode).collection('chunks').doc(chunkId).get()
+                    );
+
+                    await setProcessStep(2, "Downloading scattered chunks...", 1200);
+
+                    const chunkDocs = await Promise.all(chunkPromises);
+                    
+                    await setProcessStep(3, "Reassembling & Decoding Base64...", 800);
+
+                    // Sort chunks by index to ensure correct reassembly
+                    const chunks = chunkDocs.map(doc => doc.data());
+                    chunks.sort((a, b) => a.index - b.index);
+                    
+                    downloadURL = chunks.map(c => c.data).join('');
+                    
+                    await setProcessStep(4, "File Ready!", 500);
+
+                    setupDownloadAndRender(downloadURL);
+
+                    // Hide overlay
+                    if (overlay) {
+                        const lastStep = $('#step-4');
+                        if (lastStep) {
+                            lastStep.classList.remove('active');
+                            lastStep.classList.add('completed');
+                        }
+                        await new Promise(r => setTimeout(r, 400));
+                        overlay.classList.remove('active');
+                    }
+
+                } catch (err) {
+                    console.error("Failed to load chunks:", err);
+                    if (overlay) overlay.classList.remove('active');
+                    showError();
+                }
+            };
+
+            processDownload();
+        } else {
+            // Legacy files (non-chunked)
+            setupDownloadAndRender(downloadURL);
+        }
 
         // If multiple files, show a note
         if (data.files.length > 1) {
@@ -240,7 +315,16 @@ copyShareBtn.addEventListener('click', () => {
 
 // ===== Init =====
 const urlParams = new URLSearchParams(window.location.search);
-const shareCode = urlParams.get('code');
+let shareCode = urlParams.get('code');
+
+// Fallback to hash if query parameter was dropped by a redirect
+if (!shareCode && window.location.hash) {
+    shareCode = window.location.hash.substring(1);
+    // If it includes query parameters by mistake, split them off
+    if (shareCode.includes('?')) {
+        shareCode = shareCode.split('?')[0];
+    }
+}
 
 if (shareCode) {
     loadShare(shareCode);

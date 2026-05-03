@@ -6,8 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CloudDrop — Instant File & Text Sharing</title>
   <meta name="description"
-    content="Share files, images, videos, and text instantly with CloudDrop. Powered by AWS serverless infrastructure." />
+    content="Share files, images, videos, and text instantly with CloudDrop. Powered by Firebase cloud infrastructure." />
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/process.css" />
   <link rel="icon"
     href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☁️</text></svg>" />
 </head>
@@ -32,7 +33,8 @@
   <section class="hero">
     <div class="container">
       <h1>Share Anything, <span class="gradient-text">Instantly</span></h1>
-      <p>Drop files, paste text, share images &amp; videos — get an instant link. Powered by AWS cloud infrastructure.
+      <p>Drop files, paste text, share images &amp; videos — get an instant link. Powered by Firebase cloud
+        infrastructure.
       </p>
     </div>
   </section>
@@ -56,7 +58,7 @@
           <h3>Drag &amp; drop files here</h3>
           <p>or <span class="browse-link" id="browseBtn">browse files</span> from your device</p>
           <p style="margin-top:8px;color:var(--text-muted);font-size:0.8rem;">
-            Images, Videos, Documents, Archives — up to 5 MB
+            Images, Videos, Documents, Archives — up to 10 MB
           </p>
         </div>
         <input type="file" class="file-input" id="fileInput" multiple />
@@ -151,7 +153,7 @@
         <div class="feature-card">
           <span class="feature-icon">⚡</span>
           <h3>Lightning Fast</h3>
-          <p>Files upload directly to AWS S3 via presigned URLs. No middleman, no bottlenecks — just raw cloud speed.
+          <p>Files upload directly to Firebase Cloud Storage. No middleman, no bottlenecks — just raw cloud speed.
           </p>
         </div>
         <div class="feature-card">
@@ -163,7 +165,8 @@
         <div class="feature-card">
           <span class="feature-icon">🌍</span>
           <h3>Global CDN</h3>
-          <p>CloudFront delivers your shared content from edge locations worldwide for instant access from anywhere.</p>
+          <p>Firebase CDN delivers your shared content from edge locations worldwide for instant access from anywhere.
+          </p>
         </div>
         <div class="feature-card">
           <span class="feature-icon">⏰</span>
@@ -177,8 +180,8 @@
         </div>
         <div class="feature-card">
           <span class="feature-icon">💸</span>
-          <h3>Serverless = Free Tier</h3>
-          <p>Built on AWS Lambda, S3, and DynamoDB — runs entirely on Free Tier for development and light usage.</p>
+          <h3>Firebase Free Tier</h3>
+          <p>Built on Firebase Firestore and Cloud Storage — runs entirely on the Spark (free) plan for light usage.</p>
         </div>
       </div>
     </div>
@@ -187,13 +190,37 @@
   <!-- Footer -->
   <footer class="footer">
     <div class="container">
-      <p>Built with ☁️ and AWS — <a href="https://github.com" target="_blank">CloudDrop</a> Mini Project</p>
+      <p>Built with ☁️ and Firebase — <a href="https://github.com" target="_blank">CloudDrop</a> Mini Project</p>
     </div>
   </footer>
 
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
+  <!-- Processing Overlay -->
+  <div id="processOverlay" class="process-overlay" data-mode="upload">
+    <div class="process-card">
+      <div class="process-visual">
+        <div class="visual-icon">📄</div>
+        <div class="visual-chunks">
+          <span class="visual-chunk">🧩</span>
+          <span class="visual-chunk">🧩</span>
+          <span class="visual-chunk">🧩</span>
+        </div>
+        <div class="visual-icon">🗄️</div>
+      </div>
+      <div class="process-steps" id="processSteps">
+        <!-- Steps will be dynamically injected here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK (compat v9) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <!-- App Scripts -->
+  <script src="js/firebase-config.js"></script>
   <script src="js/app.js"></script>
 </body>
 

@@ -6,6 +6,7 @@
   <title>CloudDrop — Shared Content</title>
   <meta name="description" content="View shared content on CloudDrop." />
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/process.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☁️</text></svg>" />
 </head>
 <body>
@@ -74,6 +75,30 @@
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
+  <!-- Processing Overlay -->
+  <div id="processOverlay" class="process-overlay" data-mode="download">
+    <div class="process-card">
+      <div class="process-visual">
+        <div class="visual-icon">🗄️</div>
+        <div class="visual-chunks">
+          <span class="visual-chunk">🧩</span>
+          <span class="visual-chunk">🧩</span>
+          <span class="visual-chunk">🧩</span>
+        </div>
+        <div class="visual-icon">📄</div>
+      </div>
+      <div class="process-steps" id="processSteps">
+        <!-- Steps will be dynamically injected here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK (compat v9) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <!-- App Scripts -->
+  <script src="js/firebase-config.js"></script>
   <script src="js/share.js"></script>
 </body>
 </html>

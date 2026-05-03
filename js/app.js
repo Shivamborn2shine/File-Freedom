@@ -1,29 +1,14 @@
 /**
  * CloudDrop — Main Application Logic
  * Handles file upload, text sharing, and UI interactions
+ * Powered by Firebase (Firestore)
  */
 
 // ===== Configuration =====
 const CONFIG = {
-  // Replace with your actual API Gateway URL after deploying SAM template
-  API_BASE: 'https://wr25rqxcl3.execute-api.ap-south-1.amazonaws.com/Prod',
-  MAX_FILE_SIZE: 5 * 1024 * 1024, // 5 MB (API Gateway payload limit)
+  MAX_FILE_SIZE: 10 * 1024 * 1024, // 10 MB (Chunks bypass 1MB limit)
   MAX_TEXT_SIZE: 500000, // 500K characters
 };
-
-// ===== File to Base64 Helper =====
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      // Remove "data:...;base64," prefix
-      const base64 = reader.result.split(',')[1];
-      resolve(base64);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 // ===== DOM Elements =====
 const $ = (sel) => document.querySelector(sel);
@@ -51,6 +36,32 @@ const toastContainer = $('#toastContainer');
 // ===== State =====
 let selectedFiles = [];
 let isUploading = false;
+
+// ===== Process Overlay Helper =====
+async function setProcessStep(stepNumber, text, delayMs = 600) {
+  const stepsContainer = $('#processSteps');
+  if (!stepsContainer) return;
+  
+  if (stepNumber === 1) stepsContainer.innerHTML = '';
+
+  const prevStep = $(`#step-${stepNumber - 1}`);
+  if (prevStep) {
+    prevStep.classList.remove('active');
+    prevStep.classList.add('completed');
+  }
+
+  const stepEl = document.createElement('div');
+  stepEl.id = `step-${stepNumber}`;
+  stepEl.className = 'process-step active';
+  stepEl.innerHTML = `
+    <div class="step-indicator"><span class="step-number">${stepNumber}</span></div>
+    <div class="step-text">${text}</div>
+  `;
+  stepsContainer.appendChild(stepEl);
+
+  // Artificial delay for playful visual effect
+  await new Promise(r => setTimeout(r, delayMs));
+}
 
 // ===== Stats (localStorage-backed) =====
 function loadStats() {
@@ -110,11 +121,13 @@ function getFileCategory(file) {
   if (type.startsWith('video/')) return 'video';
   if (type.startsWith('text/') || ['js', 'py', 'html', 'css', 'json', 'xml', 'md', 'yml', 'yaml', 'ts', 'jsx', 'tsx'].includes(ext)) return 'text';
   if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt'].includes(ext)) return 'document';
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return 'archive';
+  if (['exe', 'msi', 'apk', 'dmg', 'sh', 'bat'].includes(ext)) return 'executable';
   return 'other';
 }
 
 function getFileIcon(category) {
-  const icons = { image: '🖼️', video: '🎬', text: '📄', document: '📑', other: '📎' };
+  const icons = { image: '🖼️', video: '🎬', text: '📄', document: '📑', archive: '📦', executable: '⚙️', other: '📎' };
   return icons[category] || '📎';
 }
 
@@ -225,7 +238,7 @@ function generateShareCode() {
   return code;
 }
 
-// ===== Upload Files =====
+// ===== Upload Files to Firebase =====
 uploadBtn.addEventListener('click', async () => {
   if (isUploading || selectedFiles.length === 0) return;
   isUploading = true;
@@ -234,50 +247,93 @@ uploadBtn.addEventListener('click', async () => {
   progressWrapper.classList.add('active');
   progressBar.style.width = '0%';
 
-  const expiry = parseInt($('#fileExpiry').value);
+  // Show playful overlay
+  const overlay = $('#processOverlay');
+  if (overlay) overlay.classList.add('active');
 
   try {
     const shareCode = generateShareCode();
+    const expiry = parseInt($('#fileExpiry').value);
     const totalFiles = selectedFiles.length;
     let uploaded = 0;
+    const filesMetadata = [];
 
-    for (const file of selectedFiles) {
-      // Check file size limit (API Gateway has ~6MB payload limit, ~4.5MB after base64)
-      if (file.size > 5 * 1024 * 1024) {
-        showToast(`${file.name} is too large for upload (max 5 MB)`, 'error');
-        continue;
-      }
+    const batch = db.batch();
+    const shareDocRef = db.collection('shares').doc(shareCode);
+    const chunksCollectionRef = shareDocRef.collection('chunks');
 
-      // Convert file to base64
-      const fileData = await fileToBase64(file);
+    await setProcessStep(1, "Reading & Encoding files to Base64...", 800);
 
-      // Upload file data through our Lambda (bypasses S3 CORS issues)
-      const response = await fetch(`${CONFIG.API_BASE}/upload`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileType: file.type || 'application/octet-stream',
-          fileSize: file.size,
-          shareCode: shareCode,
-          expiry: expiry,
-          fileData: fileData
-        })
+    for (let fileIndex = 0; fileIndex < selectedFiles.length; fileIndex++) {
+      const file = selectedFiles[fileIndex];
+
+      // Convert file to Base64 Data URL
+      const dataURL = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
       });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error('Upload error:', response.status, errText);
-        throw new Error(`Failed to upload ${file.name}`);
+      if (fileIndex === 0) await setProcessStep(2, "Slicing text into 800KB Chunks...", 800);
+
+      // Split Base64 string into ~800KB chunks to stay under 1MB Firestore limit
+      const chunkSize = 800000;
+      const chunkIds = [];
+      const numChunks = Math.ceil(dataURL.length / chunkSize);
+
+      for (let i = 0; i < numChunks; i++) {
+        const chunkStr = dataURL.substring(i * chunkSize, (i + 1) * chunkSize);
+        const chunkId = `file_${fileIndex}_chunk_${i}`;
+        chunkIds.push(chunkId);
+        
+        const chunkDocRef = chunksCollectionRef.doc(chunkId);
+        batch.set(chunkDocRef, { data: chunkStr, index: i, fileIndex: fileIndex });
       }
 
-      console.log('Uploaded:', file.name);
+      filesMetadata.push({
+        name: file.name,
+        type: file.type || 'application/octet-stream',
+        size: file.size,
+        category: getFileCategory(file),
+        chunkIds: chunkIds,
+        isChunked: true
+      });
+
       uploaded++;
       progressBar.style.width = `${(uploaded / totalFiles) * 100}%`;
+      console.log(`Processed: ${file.name} (${numChunks} chunks)`);
     }
 
-    // Success!
-    const shareLink = `${window.location.origin}${window.location.pathname.replace('index.html', '')}share.html?code=${shareCode}`;
+    await setProcessStep(3, "Uploading to Firestore Database...", 1200);
+
+    // Add main share metadata to the batch
+    batch.set(shareDocRef, {
+      type: 'file',
+      files: filesMetadata,
+      expiry: expiry,
+      created: Date.now(),
+      shareCode: shareCode
+    });
+
+    // Execute all chunk writes and metadata write atomically
+    await batch.commit();
+
+    await setProcessStep(4, "Finalizing Share Link...", 600);
+
+    // Hide playful overlay
+    if (overlay) {
+      const lastStep = $('#step-4');
+      if (lastStep) {
+        lastStep.classList.remove('active');
+        lastStep.classList.add('completed');
+      }
+      await new Promise(r => setTimeout(r, 400));
+      overlay.classList.remove('active');
+    }
+
+    // Add the code as a hash fallback in case web servers (like `serve`) drop query parameters on redirect
+    const shareLink = `${window.location.origin}${window.location.pathname.replace('index.html', '')}share.html?code=${shareCode}#${shareCode}`;
     shareLinkInput.value = shareLink;
     shareResult.classList.add('active');
     incrementStat('uploads');
@@ -288,49 +344,7 @@ uploadBtn.addEventListener('click', async () => {
     renderFileList();
   } catch (err) {
     console.error('Upload error:', err);
-    showToast('Upload failed. Make sure the backend is deployed.', 'error');
-
-    // DEMO MODE: Generate a demo link so the UI can still be tested
-    const demoCode = generateShareCode();
-    const demoLink = `${window.location.origin}${window.location.pathname.replace('index.html', '')}share.html?code=${demoCode}`;
-    shareLinkInput.value = demoLink;
-    shareResult.classList.add('active');
-
-    // Save demo data to localStorage for testing without backend
-    const demoFiles = selectedFiles.map(f => ({
-      name: f.name,
-      type: f.type,
-      size: f.size,
-      category: getFileCategory(f),
-      // For demo: store small files as data URLs
-      dataUrl: null
-    }));
-
-    // Store first file as data URL if small enough (< 5MB)
-    if (selectedFiles.length > 0 && selectedFiles[0].size < 5 * 1024 * 1024) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        demoFiles[0].dataUrl = reader.result;
-        localStorage.setItem(`clouddrop_${demoCode}`, JSON.stringify({
-          type: 'file',
-          files: demoFiles,
-          expiry: parseInt($('#fileExpiry').value),
-          created: Date.now()
-        }));
-      };
-      reader.readAsDataURL(selectedFiles[0]);
-    } else {
-      localStorage.setItem(`clouddrop_${demoCode}`, JSON.stringify({
-        type: 'file',
-        files: demoFiles,
-        expiry: parseInt($('#fileExpiry').value),
-        created: Date.now()
-      }));
-    }
-
-    incrementStat('uploads');
-    selectedFiles = [];
-    renderFileList();
+    showToast('Upload failed: ' + (err.message || 'Unknown error'), 'error');
   } finally {
     isUploading = false;
     uploadBtn.disabled = false;
@@ -342,7 +356,7 @@ uploadBtn.addEventListener('click', async () => {
   }
 });
 
-// ===== Share Text =====
+// ===== Share Text via Firebase =====
 shareTextBtn.addEventListener('click', async () => {
   const text = textArea.value.trim();
   if (!text) return;
@@ -354,39 +368,24 @@ shareTextBtn.addEventListener('click', async () => {
   const shareCode = generateShareCode();
 
   try {
-    const response = await fetch(`${CONFIG.API_BASE}/text`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content: text,
-        shareCode: shareCode,
-        expiry: expiry
-      })
+    // Save text to Firestore
+    await db.collection('shares').doc(shareCode).set({
+      type: 'text',
+      content: text,
+      expiry: expiry,
+      created: Date.now(),
+      shareCode: shareCode
     });
 
-    if (!response.ok) throw new Error('Failed to share text');
-
-    const shareLink = `${window.location.origin}${window.location.pathname.replace('index.html', '')}share.html?code=${shareCode}`;
+    // Add the code as a hash fallback in case web servers (like `serve`) drop query parameters on redirect
+    const shareLink = `${window.location.origin}${window.location.pathname.replace('index.html', '')}share.html?code=${shareCode}#${shareCode}`;
     shareLinkInput.value = shareLink;
     shareResult.classList.add('active');
     incrementStat('texts');
     showToast('Text shared successfully!', 'success');
   } catch (err) {
     console.error('Text share error:', err);
-
-    // DEMO MODE: Store in localStorage
-    localStorage.setItem(`clouddrop_${shareCode}`, JSON.stringify({
-      type: 'text',
-      content: text,
-      expiry: expiry,
-      created: Date.now()
-    }));
-
-    const shareLink = `${window.location.origin}${window.location.pathname.replace('index.html', '')}share.html?code=${shareCode}`;
-    shareLinkInput.value = shareLink;
-    shareResult.classList.add('active');
-    incrementStat('texts');
-    showToast('Text shared (demo mode — backend not connected)', 'info');
+    showToast('Failed to share text: ' + (err.message || 'Unknown error'), 'error');
   } finally {
     shareTextBtn.disabled = false;
     shareTextBtn.innerHTML = '<span>🔗</span> Share Text';

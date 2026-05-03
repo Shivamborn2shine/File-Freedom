@@ -1,146 +1,114 @@
-# ☁️ CloudDrop — Serverless File & Media Sharing Platform
+# ☁️ CloudDrop — Instant File & Text Sharing
 
-A cloud-based file and media sharing platform built with **AWS serverless** infrastructure. Share text, images, videos, and documents instantly via unique shareable links.
+A modern, serverless file and text sharing web application powered by **Firebase**.
 
-![Architecture](https://img.shields.io/badge/AWS-Serverless-FF9900?style=for-the-badge&logo=amazonaws)
-![Lambda](https://img.shields.io/badge/Lambda-Python_3.12-3776AB?style=for-the-badge&logo=python)
-![Status](https://img.shields.io/badge/Status-Active-10b981?style=for-the-badge)
+## 🚀 Features
 
----
+- **File Upload** — Drag & drop or browse files (up to 20 MB) and get an instant share link
+- **Text/Code Sharing** — Paste any text, code, or notes and share with a unique link
+- **Auto-Expiry** — Set content to expire after 1 hour, 24 hours, 7 days, 30 days, or never
+- **Preview Support** — Images and videos render inline; text files display with formatting
+- **Mobile Friendly** — Fully responsive design works on all devices
+- **No Sign-up Required** — Share instantly without creating an account
 
 ## 🏗️ Architecture
 
+This project uses a **Firebase Backend-as-a-Service** architecture:
+
+| Component | Service |
+|-----------|---------|
+| **Data Storage** | Cloud Firestore (Files are stored directly as Base64 strings) |
+| **Hosting** | Firebase Hosting (optional) or any static host |
+| **CDN** | Firebase CDN (built-in) |
+
+### Project Structure
+
 ```
-┌─────────────────┐     ┌──────────────┐     ┌──────────────┐
-│   Browser UI    │────▶│ API Gateway  │────▶│   Lambda     │
-│  (HTML/CSS/JS)  │     │   (REST)     │     │  Functions   │
-└─────────────────┘     └──────────────┘     └──────┬───────┘
-                                                     │
-                                    ┌────────────────┼────────────────┐
-                                    ▼                ▼                ▼
-                             ┌──────────┐    ┌──────────┐    ┌──────────────┐
-                             │    S3    │    │ DynamoDB  │    │ EventBridge  │
-                             │ (Files)  │    │(Metadata) │    │  (Cleanup)   │
-                             └──────────┘    └──────────┘    └──────────────┘
+File-Freedom/
+├── index.html              # Main upload page
+├── share.html              # Share/download page
+├── css/
+│   └── style.css           # All styles
+├── js/
+│   ├── firebase-config.js  # Firebase initialization
+│   ├── app.js              # Upload & share logic
+│   └── share.js            # Share page logic
+└── README.md
 ```
 
-### AWS Services Used
+## ⚙️ Firebase Setup
 
-| Service | Purpose |
-|---------|---------|
-| **S3** | Store uploaded files (images, videos, documents) |
-| **Lambda** | 4 functions — upload, share, text_share, cleanup |
-| **API Gateway** | RESTful API endpoints |
-| **DynamoDB** | Store share metadata with TTL auto-expiry |
-| **EventBridge** | Scheduled cleanup of expired content |
+### 1. Firebase Console Configuration
 
----
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Open the project: **file-freedom-mini-project**
+3. Enable **Cloud Firestore**:
+   - Go to Firestore Database → Create Database
+   - Choose a location (e.g., `asia-south1`)
+   - Start in **test mode** (allows all reads/writes for 30 days)
 
-## ✨ Features
+### 2. Firestore Security Rules (for production)
 
-- 📁 **File Upload** — Drag-and-drop or browse to upload images, videos, PDFs, ZIPs
-- 📝 **Text Sharing** — Paste text/code and get an instant shareable link
-- 🔗 **Shareable Links** — Unique 8-character codes (e.g., `share.html?code=abc12345`)
-- 👁️ **Preview** — Inline preview for images, videos, and text
-- ⏰ **Auto-Expiry** — Set expiry to 1 hour, 24 hours, 7 days, 30 days, or never
-- ⬇️ **Download** — Direct download button on every share page
-- 🌙 **Dark Mode** — Premium glassmorphism design
-- 📱 **Responsive** — Works on mobile, tablet, and desktop
-- 🧪 **Demo Mode** — Works locally without backend using localStorage
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /shares/{shareCode} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if false;
+    }
+  }
+}
+```
 
----
+### Limitations
 
-## 🚀 Quick Start
+- **File Size**: Because files are encoded as Base64 and stored directly inside Firestore documents (which have a strict 1 MB size limit), uploads are hard-capped at **750 KB**.
 
-### 1. Run Locally (Demo Mode)
+## 🖥️ Running Locally
 
-No AWS account needed — the frontend works standalone using localStorage:
+Simply open `index.html` in a browser, or use any local server:
 
 ```bash
-cd frontend
-# Open with any HTTP server
+# Using Python
+python -m http.server 8000
+
+# Using Node.js
 npx serve .
-# OR
-python -m http.server 3000
+
+# Using VS Code
+# Install "Live Server" extension and click "Go Live"
 ```
 
-Open `http://localhost:3000` in your browser.
+Then navigate to `http://localhost:8000` (or whatever port your server uses).
 
-### 2. Deploy Backend to AWS
-
-**Prerequisites:**
-- AWS CLI installed and configured (`aws configure`)
-- AWS SAM CLI installed ([install guide](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html))
+## 📦 Deploying to Firebase Hosting (Optional)
 
 ```bash
-# Build the SAM application
-sam build
+# Install Firebase CLI
+npm install -g firebase-tools
 
-# Deploy (first time — guided mode)
-sam deploy --guided
+# Login to Firebase
+firebase login
+
+# Initialize hosting
+firebase init hosting
+
+# Deploy
+firebase deploy --only hosting
 ```
 
-During guided deploy, use these settings:
-- **Stack Name**: `clouddrop`
-- **Region**: your preferred region (e.g., `ap-south-1`)
-- **Confirm changes**: Yes
-- **Allow SAM CLI to create IAM roles**: Yes
+## 🔧 Configuration
 
-### 3. Connect Frontend to Backend
+The Firebase config is in `js/firebase-config.js`. If you need to change the Firebase project, update the config object there.
 
-After deployment, copy the **API Gateway URL** from the outputs and update `frontend/js/app.js` and `frontend/js/share.js`:
+## 📝 How It Works
 
-```javascript
-const CONFIG = {
-  API_BASE: 'https://YOUR_API_ID.execute-api.YOUR_REGION.amazonaws.com/Prod',
-};
-```
-
----
-
-## 📁 Project Structure
-
-```
-MINI Project/
-├── frontend/
-│   ├── index.html          # Upload page (drag-drop + text paste)
-│   ├── share.html          # Shared content viewer
-│   ├── css/
-│   │   └── style.css       # Design system (dark glassmorphism)
-│   └── js/
-│       ├── app.js          # Upload & text share logic
-│       └── share.js        # Share page preview renderer
-├── backend/
-│   ├── upload.py           # Lambda: presigned URL generator
-│   ├── share.py            # Lambda: share code lookup
-│   ├── text_share.py       # Lambda: text content storage
-│   └── cleanup.py          # Lambda: scheduled expiry cleaner
-├── template.yaml           # AWS SAM / CloudFormation template
-└── README.md               # This file
-```
-
----
-
-## 🔌 API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/upload` | Request presigned URL for file upload |
-| `POST` | `/text` | Share text content |
-| `GET` | `/share/{code}` | Get shared content metadata |
-
----
-
-## 💰 Cost
-
-This project runs entirely within the **AWS Free Tier**:
-- Lambda: 1M free requests/month
-- DynamoDB: 25 GB free storage
-- S3: 5 GB free storage
-- API Gateway: 1M free calls/month
-
----
+1. **Upload Flow**: User drops a file → file uploads to Firebase Storage → metadata saved to Firestore → share link generated
+2. **Text Share Flow**: User pastes text → content saved to Firestore → share link generated
+3. **View Flow**: Recipient opens share link → metadata fetched from Firestore → file/text rendered with preview → download available
 
 ## 📄 License
 
-MIT License — use freely for your projects.
+MIT License — feel free to use and modify for your own projects.
